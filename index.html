@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Avaliador de Imóveis Garuva</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+/* Layout: coluna única de celular, formulário em blocos com régua, resultado ao vivo numa barra fixa no rodapé */
+:root{
+  --bg:#f3f5f2; --surface:#ffffff; --ink:#10282b; --muted:#5b6f71; --line:#d9e0dc;
+  --accent:#0b6b5c; --accent-ink:#ffffff; --tint:#e6f1ee;
+  --good:#1f7a43; --warn:#a8680c; --bad:#b3372b;
+  --font-display:'Sora',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-body:'Public Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d1a1c; --surface:#142427; --ink:#e6efed; --muted:#94a9a7; --line:#27393b;
+    --accent:#45bba4; --accent-ink:#06201b; --tint:#18332f;
+    --good:#58c283; --warn:#e2a03f; --bad:#ee7b6e;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d1a1c; --surface:#142427; --ink:#e6efed; --muted:#94a9a7; --line:#27393b;
+  --accent:#45bba4; --accent-ink:#06201b; --tint:#18332f;
+  --good:#58c283; --warn:#e2a03f; --bad:#ee7b6e;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%}
+.wrap{max-width:560px;margin:0 auto;padding:20px 16px 150px}
+h1{font-family:var(--font-display);font-size:24px;line-height:1.15;margin:0 0 4px;text-wrap:balance}
+.sub{color:var(--muted);margin:0 0 20px;font-size:14px}
+h2{font-family:var(--font-display);font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:0 0 12px;padding-top:16px;border-top:2px solid var(--accent)}
+section{margin-bottom:24px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.full{grid-column:1/-1}
+label{display:block;font-size:13px;font-weight:600;margin-bottom:4px}
+.hint{font-weight:400;color:var(--muted)}
+input[type=text],input[type=number],select,textarea{
+  width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--surface);
+  border:1px solid var(--line);border-radius:8px;padding:11px 12px;min-height:46px;appearance:none;-webkit-appearance:none}
+select{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 18px) 20px,calc(100% - 13px) 20px;background-size:5px 5px;background-repeat:no-repeat;padding-right:32px}
+textarea{min-height:76px;resize:vertical}
+input:focus,select:focus,textarea:focus,button:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+.checks{display:flex;flex-wrap:wrap;gap:8px}
+.check{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 12px;min-height:46px;font-size:14px;font-weight:500;margin:0;cursor:pointer}
+.check input{width:20px;height:20px;accent-color:var(--accent);margin:0}
+.result{background:var(--tint);border:1px solid var(--line);border-radius:12px;padding:16px}
+.big{font-family:var(--font-display);font-size:32px;line-height:1.1;margin:4px 0 2px;color:var(--accent);font-variant-numeric:tabular-nums}
+.lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.range{color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0}
+.chip{font-size:13px;font-weight:600;padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface)}
+.chip.good{color:var(--good);border-color:var(--good)}
+.chip.warn{color:var(--warn);border-color:var(--warn)}
+.chip.bad{color:var(--bad);border-color:var(--bad)}
+table.rows{width:100%;border-collapse:collapse;margin-top:14px;font-size:14px;font-variant-numeric:tabular-nums}
+table.rows td{padding:7px 0;border-top:1px solid var(--line)}
+table.rows td:last-child{text-align:right;font-weight:600}
+.tri{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 0}
+.tc{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 8px;min-width:0}
+.tc.mid{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tc .tl{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.85}
+.tc .tv{font-family:var(--font-display);font-size:15px;line-height:1.15;margin:4px 0 2px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.tc .tm{font-size:11px;opacity:.8;font-variant-numeric:tabular-nums}
+.tc .td{font-size:11px;margin-top:4px;opacity:.85;line-height:1.25}
+@media (max-width:420px){.tri{grid-template-columns:1fr}.tc{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center}.tc .td{grid-column:1/-1;margin-top:0}}
+.note{font-size:13px;color:var(--muted);margin:12px 0 0}
+.note b{color:var(--ink)}
+.empty{color:var(--muted);font-size:15px;margin:0}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom));z-index:5}
+.bar-in{max-width:560px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.bar-v{flex:1;min-width:0}
+.bar-v strong{display:block;font-family:var(--font-display);font-size:19px;line-height:1.1;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-v span{font-size:12px;color:var(--muted)}
+button{font:inherit;font-weight:700;border:0;border-radius:10px;min-height:48px;padding:0 18px;cursor:pointer}
+.btn{background:var(--accent);color:var(--accent-ink)}
+.btn2{background:transparent;color:var(--accent);border:2px solid var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.actions button{flex:1;min-width:150px}
+details{border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-bottom:12px}
+summary{cursor:pointer;font-weight:700;padding:13px 14px;min-height:46px;font-size:15px}
+.dbody{padding:0 14px 14px}
+.dbody .grid{margin-top:4px}
+.small{font-size:12px;color:var(--muted);margin:10px 0 0}
+#toast{position:fixed;left:16px;right:16px;bottom:88px;max-width:528px;margin:0 auto;background:var(--ink);color:var(--bg);padding:12px 14px;border-radius:10px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9;text-align:center}
+#toast.on{opacity:1}
+#copybox{display:none;margin-top:10px;min-height:150px;font-size:13px}
+.hide{display:none!important}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:30;display:flex;align-items:flex-end;justify-content:center;padding:12px}
+.modal-in{background:var(--surface);border-radius:14px;padding:18px 16px;max-width:520px;width:100%;max-height:100%;overflow:auto}
+.modal-in h2{border:0;padding:0;margin:0 0 6px;color:var(--ink);font-size:18px;text-transform:none;letter-spacing:0}
+.err{color:var(--bad);font-size:14px;min-height:1.2em;margin:8px 0}
+@media (min-width:600px){.modal{align-items:center}}
+@media (prefers-reduced-motion: reduce){#toast{transition:none}}
+@media (max-width:380px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Avaliador de Imóveis Garuva</h1>
+  <p class="sub">Preencha os dados do imóvel. Em menos de um minuto você sai com um PDF de 3 valores: venda rápida, mercado e sem pressa.</p>
+
+  <section aria-labelledby="h-imovel">
+    <h2 id="h-imovel">Imóvel</h2>
+    <div class="grid">
+      <div class="full">
+        <label for="f-ref">Identificação <span class="hint">(endereço ou nome do cliente)</span></label>
+        <input type="text" id="f-ref" autocomplete="off" placeholder="Ex.: Rua Afonso Pena, Centro">
+      </div>
+      <div class="full">
+        <label for="f-tipo">Tipo</label>
+        <select id="f-tipo"></select>
+      </div>
+      <div class="full">
+        <label for="f-regiao">Região / bairro</label>
+        <select id="f-regiao"></select>
+      </div>
+      <div class="full">
+        <label for="f-terr">Área do terreno (m²)</label>
+        <input type="number" id="f-terr" inputmode="decimal" min="0" step="any">
+      </div>
+    </div>
+  </section>
+
+  <section id="grp-const" aria-labelledby="h-const">
+    <h2 id="h-const">Construção</h2>
+    <div class="grid">
+      <div>
+        <label for="f-area">Área construída (m²)</label>
+        <input type="number" id="f-area" inputmode="decimal" min="0" step="any">
+      </div>
+      <div>
+        <label for="f-ano">Ano da construção</label>
+        <input type="number" id="f-ano" inputmode="numeric" min="1900" max="2100" step="1">
+      </div>
+      <div>
+        <label for="f-material">Material</label>
+        <select id="f-material"></select>
+      </div>
+      <div>
+        <label for="f-padrao">Padrão de acabamento</label>
+        <select id="f-padrao"></select>
+      </div>
+      <div class="full">
+        <label for="f-cons">Estado de conservação</label>
+        <select id="f-cons"></select>
+      </div>
+      <div class="full">
+        <label>Extras</label>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="x-piscina"> Piscina</label>
+          <label class="check"><input type="checkbox" id="x-gourmet"> Área gourmet</label>
+          <label class="check"><input type="checkbox" id="x-garagem"> Garagem coberta</label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-obs">
+    <h2 id="h-obs">Observações para o PDF</h2>
+    <label for="f-obs" class="hint" style="font-weight:400">Opcional. Aparece no relatório.</label>
+    <textarea id="f-obs" placeholder="Ex.: reforma recente da cozinha, rua asfaltada, documentação em dia"></textarea>
+  </section>
+
+  <section aria-labelledby="h-res" aria-live="polite">
+    <h2 id="h-res">Resultado</h2>
+    <div class="result" id="result"></div>
+    <div class="actions">
+      <button class="btn" id="btn-pdf2" type="button">Gerar PDF</button>
+      <button class="btn2" id="btn-copy" type="button">Copiar resumo</button>
+    </div>
+    <p class="small hide" id="dl-hint"></p>
+    <textarea id="copybox" readonly aria-label="Resumo para copiar"></textarea>
+  </section>
+
+  <section aria-labelledby="h-set">
+    <h2 id="h-set">Ajustes</h2>
+    <details>
+      <summary>Seus dados no PDF</summary>
+      <div class="dbody"><div class="grid" id="perfil-grid"></div></div>
+    </details>
+    <details>
+      <summary>Valores de mercado usados no cálculo</summary>
+      <div class="dbody">
+        <p class="small" style="margin-top:0">Base: anúncios de Garuva em nov/2026 e CUB SC de jul/2026 (R$ 3.121,62/m²). Atualize conforme fechar negócios. Os valores ficam salvos neste aparelho.</p>
+        <div class="grid" id="cfg-grid"></div>
+        <div class="actions"><button class="btn2" id="btn-reset" type="button">Voltar aos valores originais</button></div>
+      </div>
+    </details>
+    <p class="small">Uso interno da equipe. Estimativa de valor de mercado, não substitui laudo técnico.</p>
+  </section>
+</div>
+
+<div class="bar">
+  <div class="bar-in">
+    <div class="bar-v"><strong id="bar-valor">R$ 0</strong><span id="bar-sub">preencha os dados</span></div>
+    <button class="btn" id="btn-pdf" type="button">Gerar PDF</button>
+  </div>
+</div>
+<div id="setup" class="modal hide" role="dialog" aria-modal="true" aria-labelledby="setup-t">
+  <div class="modal-in">
+    <h2 id="setup-t">Seus dados nos PDFs</h2>
+    <p class="small" style="margin:0 0 12px">Aparecem no rodapé de cada avaliação. Preencha uma vez: ficam salvos neste aparelho e dá para mudar em Ajustes.</p>
+    <div class="grid" id="setup-grid"></div>
+    <p class="err" id="setup-err" role="alert"></p>
+    <button class="btn" id="setup-ok" type="button" style="width:100%">Começar a avaliar</button>
+  </div>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- Configuração padrão ---------- */
+var DEFAULT = {
+  cfg: {
+    custo: {simples:2700, medio:3500, bom:4200, alto:5200},
+    descNeg: 5,
+    rapida: 8, semPressa: 12,
+    extras: {piscina:30000, gourmet:12000, garagem:15000},
+    regioes: {
+      centro_rua:   {nome:'Centro, lote de rua',             terreno:600, faixa:[550,650],  ref:600,  conf:'alta'},
+      centro_cond:  {nome:'Centro, condomínio fechado',       terreno:950, faixa:[800,1100], ref:600,  conf:'alta'},
+      tres_barras:  {nome:'Três Barras / Villa Dona Francisca', terreno:420, faixa:[385,460],  ref:600,  conf:'média'},
+      sj_abaixo:    {nome:'São João Abaixo',                  terreno:350, faixa:[250,450],  ref:600,  conf:'baixa'},
+      rio_onca:     {nome:'Rio da Onça',                      terreno:350, faixa:[250,450],  ref:600,  conf:'baixa'},
+      garuva_acima: {nome:'Garuva Acima',                     terreno:250, faixa:[150,350],  ref:1500, conf:'baixa'},
+      av_parana:    {nome:'Av. Paraná / BR-101',              terreno:300, faixa:[150,415],  ref:2000, conf:'média'},
+      palmital:     {nome:'Palmital / Urubuquara',            terreno:180, faixa:[150,200],  ref:3000, conf:'média'},
+      rural:        {nome:'Rural / Quiriri / Bom Futuro',     terreno:70,  faixa:[40,100],   ref:5000, conf:'média'}
+    }
+  },
+  perfil: {
+    nome:'', creci:'', imob:'', whats:'', insta:'', ok:false
+  }
+};
+var BENCH = { /* R$/m² construído, imóvel inteiro, Centro de Garuva */
+  geminada:{nome:'Geminado MCMV', faixa:[4500,5400]},
+  terrea_simples:{nome:'Térrea simples', faixa:[4400,5000]},
+  terrea_boa:{nome:'Térrea boa, isolada no lote', faixa:[4800,6300]},
+  sobrado:{nome:'Sobrado', faixa:[5400,6000]},
+  alto:{nome:'Alto padrão', faixa:[7500,8000]},
+  madeira:{nome:'Casa de madeira (estimativa)', faixa:[2000,3000]}
+};
+var TIPOS = {terrea:'Casa térrea isolada no lote', sobrado:'Sobrado', geminada:'Casa geminada', terreno:'Terreno'};
+var TIPOF = {terrea:1, sobrado:1.05, geminada:.95, terreno:0};
+var MAT = {alvenaria:{nome:'Alvenaria', c:1, v:80}, mista:{nome:'Mista (alvenaria e madeira)', c:.85, v:60}, madeira:{nome:'Madeira', c:.6, v:40}};
+var PADRAO = {simples:'Simples', medio:'Médio', bom:'Bom', alto:'Alto padrão'};
+var CONS = {otimo:{nome:'Ótimo (reformado)', f:1.06}, bom:{nome:'Bom', f:1}, regular:{nome:'Regular, precisa de reparos', f:.88}, ruim:{nome:'Ruim, precisa de reforma', f:.7}};
+var PCT = {'alta':.07, 'média':.10, 'baixa':.15};
+var KEY = 'avaliador-garuva-v1';
+
+var state = JSON.parse(JSON.stringify(DEFAULT));
+try{
+  var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+  if(saved){ merge(state, saved); }
+}catch(e){}
+function merge(t,s){
+  for(var k in s){
+    if(s[k] && typeof s[k]==='object' && !Array.isArray(s[k]) && t[k] && typeof t[k]==='object'){ merge(t[k], s[k]); }
+    else if(t.hasOwnProperty(k)){ t[k]=s[k]; }
+  }
+}
+function persist(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+
+/* ---------- Utilidades ---------- */
+var $ = function(id){ return document.getElementById(id); };
+var nf = new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0});
+function brl(v){ return 'R$ ' + nf.format(Math.round(v)); }
+function num(v){ var n = parseFloat(String(v).replace(',','.')); return isFinite(n) ? n : 0; }
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+function toast(msg){ var t=$('toast'); t.textContent=msg; t.className='on'; clearTimeout(toast._t); toast._t=setTimeout(function(){t.className='';},3200); }
+var YEAR = new Date().getFullYear();
+
+/* ---------- Formulário ---------- */
+function fillSelect(id, obj, label){
+  var s=$(id); s.innerHTML='';
+  Object.keys(obj).forEach(function(k){
+    var o=document.createElement('option'); o.value=k; o.textContent=label(obj[k]); s.appendChild(o);
+  });
+}
+fillSelect('f-tipo', TIPOS, function(v){return v;});
+fillSelect('f-regiao', state.cfg.regioes, function(v){return v.nome;});
+fillSelect('f-material', MAT, function(v){return v.nome;});
+fillSelect('f-padrao', PADRAO, function(v){return v;});
+fillSelect('f-cons', CONS, function(v){return v.nome;});
+
+/* estado inicial de exemplo: térrea boa no Centro */
+$('f-tipo').value='terrea'; $('f-regiao').value='centro_rua'; $('f-terr').value=360;
+$('f-area').value=140; $('f-ano').value=2015; $('f-material').value='alvenaria';
+$('f-padrao').value='bom'; $('f-cons').value='bom';
+$('f-ref').value='Exemplo: casa térrea no Centro';
+
+function read(){
+  return {
+    ref:$('f-ref').value.trim(), tipo:$('f-tipo').value, regiao:$('f-regiao').value,
+    terr:num($('f-terr').value), area:num($('f-area').value), ano:Math.round(num($('f-ano').value)),
+    material:$('f-material').value, padrao:$('f-padrao').value, cons:$('f-cons').value,
+    piscina:$('x-piscina').checked, gourmet:$('x-gourmet').checked, garagem:$('x-garagem').checked,
+    obs:$('f-obs').value.trim()
+  };
+}
+
+/* ---------- Cálculo ---------- */
+function calc(i){
+  var cfg=state.cfg, reg=cfg.regioes[i.regiao];
+  var isT = i.tipo==='terreno';
+  if(i.terr<=0 || (!isT && (i.area<=0 || i.ano<1900 || i.ano>YEAR+3))) return null;
+
+  var f = i.terr>reg.ref ? Math.pow(reg.ref/i.terr, .35) : 1;
+  var unitTerr = reg.terreno*f;
+  var vTerr = i.terr*unitTerr;
+  var vConst=0, vExtras=0, idade=0, fi=1, custo=0, novo=0, fc=1;
+  var m = MAT[i.material];
+  if(!isT){
+    custo = cfg.custo[i.padrao]*m.c*TIPOF[i.tipo];
+    novo = i.area*custo;
+    idade = Math.max(0, YEAR-i.ano);
+    var r = Math.min(1, idade/m.v);
+    fi = Math.max(.2, 1-.5*(r*r+r));
+    fc = CONS[i.cons].f;
+    vConst = novo*fi*fc;
+    if(i.piscina) vExtras += cfg.extras.piscina;
+    if(i.gourmet) vExtras += cfg.extras.gourmet;
+    if(i.garagem) vExtras += cfg.extras.garagem;
+  }
+  var bruto = vTerr+vConst+vExtras;
+  var aj = bruto*(cfg.descNeg/100);
+  var est = Math.round((bruto-aj)/1000)*1000;
+  var conf = reg.conf;
+  if(!isT && i.material==='madeira') conf='baixa';
+  var pct = PCT[conf];
+  var min = Math.round(est*(1-pct)/1000)*1000, max = Math.round(est*(1+pct)/1000)*1000;
+  var vRapida = Math.round(est*(1-cfg.rapida/100)/1000)*1000;
+  var vSem = Math.round(est*(1+cfg.semPressa/100)/1000)*1000;
+  var perM2 = est/(isT ? i.terr : i.area);
+
+  var bench=null, status=null, centro = i.regiao==='centro_rua' || i.regiao==='centro_cond';
+  if(isT){
+    bench = {nome:'Terreno, '+reg.nome, faixa:reg.faixa};
+  } else if(centro){
+    var key = i.material==='madeira' ? 'madeira' : i.padrao==='alto' ? 'alto' : i.tipo==='geminada' ? 'geminada' : i.tipo==='sobrado' ? 'sobrado' : i.padrao==='simples' ? 'terrea_simples' : 'terrea_boa';
+    bench = BENCH[key];
+  }
+  if(bench){
+    status = perM2 < bench.faixa[0]*.97 ? 'abaixo' : perM2 > bench.faixa[1]*1.03 ? 'acima' : 'dentro';
+  }
+  return {i:i, reg:reg, isT:isT, unitTerr:unitTerr, vTerr:vTerr, vConst:vConst, vExtras:vExtras, novo:novo, custo:custo, idade:idade, fi:fi, fc:fc, aj:aj, est:est, min:min, max:max, conf:conf, pct:pct, rapida:vRapida, sem:vSem, perM2:perM2, bench:bench, status:status, vida:m.v};
+}
+
+/* ---------- Tela ---------- */
+var last=null;
+function render(){
+  var i=read();
+  $('grp-const').classList.toggle('hide', i.tipo==='terreno');
+  var c = calc(i); last=c;
+  var box=$('result');
+  $('btn-pdf').disabled = $('btn-pdf2').disabled = !c;
+  $('btn-copy').disabled = !c;
+  if(!c){
+    box.innerHTML='<p class="empty">Preencha área do terreno'+(i.tipo==='terreno'?'':', área construída e ano')+' para ver o valor.</p>';
+    $('bar-valor').textContent='R$ 0'; $('bar-sub').textContent='preencha os dados';
+    return;
+  }
+  var unit = c.isT ? 'm² de terreno' : 'm² construído (com terreno)';
+  var chipConf = '<span class="chip '+(c.conf==='alta'?'good':c.conf==='média'?'warn':'bad')+'">Confiança '+c.conf+'</span>';
+  var chipSt='';
+  if(c.status){
+    var cls = c.status==='dentro'?'good':'warn';
+    var txt = c.status==='dentro' ? 'Dentro da referência de mercado' : c.status==='abaixo' ? 'Abaixo da referência de mercado' : 'Acima da referência de mercado';
+    chipSt = '<span class="chip '+cls+'">'+txt+'</span>';
+  }
+  var rows = '<tr><td>Terreno ('+nf.format(c.i.terr)+' m² a '+brl(c.unitTerr)+'/m²)</td><td>'+brl(c.vTerr)+'</td></tr>';
+  if(!c.isT){
+    rows += '<tr><td>Construção hoje ('+Math.round(c.fi*c.fc*100)+'% do valor novo)</td><td>'+brl(c.vConst)+'</td></tr>';
+    if(c.vExtras) rows += '<tr><td>Extras</td><td>'+brl(c.vExtras)+'</td></tr>';
+  }
+  rows += '<tr><td>Desconto de negociação (-'+state.cfg.descNeg+'%)</td><td>-'+brl(c.aj)+'</td></tr>';
+  var benchTxt = c.bench ? '<p class="note"><b>Referência: '+esc(c.bench.nome)+'</b>, R$ '+nf.format(c.bench.faixa[0])+' a '+nf.format(c.bench.faixa[1])+' por m².</p>'
+                         : '<p class="note">Sem referência de R$/m² confiável para esta região. Use o valor como ponto de partida.</p>';
+  var extraNote = (!c.isT && c.i.material==='madeira') ? '<p class="note"><b>Madeira:</b> não há anúncios comparáveis em Garuva. O valor é estimado, confira com vendas reais.</p>' : '';
+  var per = c.isT ? c.i.terr : c.i.area;
+  function tc(cls,t,v,d){ return '<div class="tc '+cls+'"><div><div class="tl">'+t+'</div><div class="tv">'+brl(v)+'</div></div><div class="tm">'+brl(v/per)+'/m²</div><div class="td">'+d+'</div></div>'; }
+  box.innerHTML =
+    '<div class="lbl">Três valores para este imóvel</div>'+
+    '<div class="tri">'+
+      tc('','Venda rápida',c.rapida,'Prioriza fechar logo')+
+      tc('mid','Mercado',c.est,'Onde imóveis iguais fecham')+
+      tc('','Sem pressa',c.sem,'Anúncio com margem')+
+    '</div>'+
+    '<div class="chips"><span class="chip">Faixa '+brl(c.min)+' a '+brl(c.max)+'</span>'+chipConf+chipSt+'</div>'+
+    '<table class="rows"><tbody>'+rows+'</tbody></table>'+
+    benchTxt+extraNote;
+  $('bar-valor').textContent = brl(c.est);
+  $('bar-sub').textContent = 'mercado | rápida '+brl(c.rapida)+' | sem pressa '+brl(c.sem);
+}
+['f-ref','f-tipo','f-regiao','f-terr','f-area','f-ano','f-material','f-padrao','f-cons','x-piscina','x-gourmet','x-garagem','f-obs'].forEach(function(id){
+  $(id).addEventListener('input', render);
+  $(id).addEventListener('change', render);
+});
+
+/* ---------- Ajustes ---------- */
+function field(id, label, value, step){
+  return '<div><label for="'+id+'">'+label+'</label><input type="number" id="'+id+'" inputmode="decimal" step="'+(step||'any')+'" value="'+value+'"></div>';
+}
+function textField(id, label, value, full){
+  return '<div'+(full?' class="full"':'')+'><label for="'+id+'">'+label+'</label><input type="text" id="'+id+'" value="'+esc(value)+'" autocomplete="off"></div>';
+}
+function buildSettings(){
+  var p=state.perfil;
+  $('perfil-grid').innerHTML =
+    textField('p-nome','Nome',p.nome,true)+textField('p-creci','CRECI',p.creci)+textField('p-imob','Imobiliária',p.imob)+
+    textField('p-whats','WhatsApp',p.whats)+textField('p-insta','Instagram',p.insta);
+  var h='', c=state.cfg;
+  h += '<div class="full"><span class="lbl">Custo de construção (R$/m²)</span></div>';
+  Object.keys(PADRAO).forEach(function(k){ h+=field('c-custo-'+k, PADRAO[k], c.custo[k]); });
+  h += '<div class="full"><span class="lbl">Terreno por região (R$/m²)</span></div>';
+  Object.keys(c.regioes).forEach(function(k){ h+=field('c-reg-'+k, c.regioes[k].nome+' <span class="hint">('+c.regioes[k].conf+')</span>', c.regioes[k].terreno); });
+  h += '<div class="full"><span class="lbl">Extras (R$)</span></div>';
+  h += field('c-ex-piscina','Piscina',c.extras.piscina)+field('c-ex-gourmet','Área gourmet',c.extras.gourmet)+field('c-ex-garagem','Garagem coberta',c.extras.garagem);
+  h += '<div class="full"><span class="lbl">Negociação</span></div>';
+  h += field('c-desc','Desconto de negociação: anúncio para fechado (%)',c.descNeg)+field('c-rap','Venda rápida: abaixo do mercado (%)',c.rapida)+field('c-sem','Sem pressa: acima do mercado (%)',c.semPressa);
+  $('cfg-grid').innerHTML=h;
+  $('perfil-grid').querySelectorAll('input').forEach(function(el){ el.addEventListener('change', readSettings); });
+  $('cfg-grid').querySelectorAll('input').forEach(function(el){ el.addEventListener('change', readSettings); });
+}
+function readSettings(){
+  var p=state.perfil, c=state.cfg;
+  p.nome=$('p-nome').value.trim(); p.creci=$('p-creci').value.trim(); p.imob=$('p-imob').value.trim();
+  p.whats=$('p-whats').value.trim(); p.insta=$('p-insta').value.trim(); if(p.nome && p.whats) p.ok=true;
+  Object.keys(PADRAO).forEach(function(k){ var v=num($('c-custo-'+k).value); if(v>0) c.custo[k]=v; });
+  Object.keys(c.regioes).forEach(function(k){ var v=num($('c-reg-'+k).value); if(v>0) c.regioes[k].terreno=v; });
+  c.extras.piscina=Math.max(0,num($('c-ex-piscina').value)); c.extras.gourmet=Math.max(0,num($('c-ex-gourmet').value)); c.extras.garagem=Math.max(0,num($('c-ex-garagem').value));
+  c.descNeg=Math.min(30,Math.max(0,num($('c-desc').value))); c.rapida=Math.min(30,Math.max(0,num($('c-rap').value))); c.semPressa=Math.min(40,Math.max(0,num($('c-sem').value)));
+  persist(); render();
+}
+$('btn-reset').addEventListener('click', function(){
+  state = JSON.parse(JSON.stringify(DEFAULT)); persist(); buildSettings(); render(); toast('Valores originais restaurados');
+});
+buildSettings();
+
+/* ---------- Primeiro acesso: dados do corretor ---------- */
+function openSetup(){
+  var p=state.perfil;
+  $('setup-grid').innerHTML =
+    textField('s-nome','Seu nome completo',p.nome,true)+
+    textField('s-creci','CRECI (ex.: CRECI-SC 12.345F)',p.creci,true)+
+    textField('s-whats','WhatsApp',p.whats)+textField('s-insta','Instagram',p.insta)+
+    textField('s-imob','Imobiliária',p.imob,true);
+  $('setup').classList.remove('hide');
+  setTimeout(function(){ try{ $('s-nome').focus(); }catch(e){} },50);
+}
+$('setup-ok').addEventListener('click', function(){
+  var nome=$('s-nome').value.trim(), whats=$('s-whats').value.trim();
+  if(!nome){ $('setup-err').textContent='Digite seu nome.'; return; }
+  if(!whats){ $('setup-err').textContent='Digite seu WhatsApp.'; return; }
+  var p=state.perfil;
+  p.nome=nome; p.whats=whats; p.creci=$('s-creci').value.trim(); p.insta=$('s-insta').value.trim(); p.imob=$('s-imob').value.trim(); p.ok=true;
+  persist(); buildSettings(); $('setup').classList.add('hide'); $('setup-err').textContent=''; render();
+});
+if(!state.perfil.ok){ openSetup(); }
+
+/* ---------- Resumo para WhatsApp ---------- */
+function summaryText(c){
+  var i=c.i, p=state.perfil, L=[];
+  L.push('*Avaliação de imóvel*'+(i.ref?' - '+i.ref:''));
+  L.push(TIPOS[i.tipo]+' | '+c.reg.nome);
+  L.push('Terreno: '+nf.format(i.terr)+' m²'+(c.isT?'':' | Construído: '+nf.format(i.area)+' m² | '+i.ano+' | '+MAT[i.material].nome));
+  L.push('');
+  L.push('*Venda rápida: '+brl(c.rapida)+'*');
+  L.push('*Mercado: '+brl(c.est)+'*');
+  L.push('*Sem pressa: '+brl(c.sem)+'*');
+  L.push('Faixa de mercado: '+brl(c.min)+' a '+brl(c.max)+' | '+brl(c.perM2)+' por m²');
+  L.push('');
+  L.push(p.nome+(p.creci?' | '+p.creci:'')+(p.imob?' | '+p.imob:''));
+  if(p.whats) L.push('WhatsApp '+p.whats);
+  return L.join('\n');
+}
+$('btn-copy').addEventListener('click', function(){
+  if(!last) return;
+  var txt=summaryText(last), ok=false;
+  function fallback(){ var b=$('copybox'); b.style.display='block'; b.value=txt; b.focus(); b.select(); toast('Segure no texto abaixo e copie'); }
+  try{
+    navigator.clipboard.writeText(txt).then(function(){ toast('Resumo copiado'); }, fallback);
+  }catch(e){ fallback(); }
+});
+
+/* ---------- PDF ---------- */
+var downloads = null;
+(function(){
+  try{
+    if(window.claude && typeof window.claude.use==='function'){
+      window.claude.use('downloads').then(function(d){ downloads=d; if(!d) $('dl-hint').classList.remove('hide'); }, function(){ $('dl-hint').classList.remove('hide'); });
+    }
+  }catch(e){}
+})();
+
+function buildPDF(c){
+  var J = window.jspdf && window.jspdf.jsPDF;
+  if(!J) return null;
+  var doc = new J({unit:'mm', format:'a4'});
+  var G=[11,107,92], INK=[16,40,43], MUT=[91,111,113], LN=[217,224,220], TINT=[230,241,238];
+  var i=c.i, p=state.perfil, y=0, W=210, M=15;
+  var hoje = new Date().toLocaleDateString('pt-BR');
+
+  function txt(s,x,yy,o){ doc.text(String(s).replace(/\u00B2/g,'2'),x,yy,o||{}); }
+  function need(h){ if(y+h>272){ doc.addPage(); y=20; } }
+  function title(t){
+    need(14); doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(G[0],G[1],G[2]);
+    txt(t.toUpperCase(),M,y); doc.setDrawColor(G[0],G[1],G[2]); doc.setLineWidth(.5); doc.line(M,y+2,W-M,y+2); y+=9;
+  }
+  function row(l,v){
+    var lines = doc.splitTextToSize(String(v), 105);
+    need(6.2*lines.length);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(MUT[0],MUT[1],MUT[2]); txt(l,M,y);
+    doc.setFont('helvetica','bold'); doc.setTextColor(INK[0],INK[1],INK[2]);
+    for(var k=0;k<lines.length;k++){ txt(lines[k],M+62,y); y+=5.6; }
+    y+=.8;
+  }
+  function para(t,size,color){
+    doc.setFont('helvetica','normal'); doc.setFontSize(size||9.5); doc.setTextColor.apply(doc,color||MUT);
+    var lines=doc.splitTextToSize(t, W-2*M);
+    for(var k=0;k<lines.length;k++){ need(5); txt(lines[k],M,y); y+=4.6; }
+    y+=1.5;
+  }
+
+  /* cabeçalho */
+  doc.setFillColor(G[0],G[1],G[2]); doc.rect(0,0,W,34,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(20); txt('Avaliação de Imóvel',M,16);
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); txt('Opinião de valor de mercado | Garuva, SC',M,24);
+  txt(hoje,W-M,16,{align:'right'});
+  txt(p.nome,W-M,24,{align:'right'});
+  y=46;
+
+  if(i.ref){
+    doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(INK[0],INK[1],INK[2]);
+    var rl=doc.splitTextToSize(i.ref, W-2*M); for(var q=0;q<rl.length;q++){ txt(rl[q],M,y); y+=6; }
+    y+=3;
+  }
+
+  /* resultado: três valores */
+  var per = c.isT ? i.terr : i.area;
+  var cards=[
+    {t:'VENDA RÁPIDA', v:c.rapida, d:'Prioriza fechar logo'},
+    {t:'MERCADO',      v:c.est,    d:'Onde imóveis iguais fecham'},
+    {t:'SEM PRESSA',   v:c.sem,    d:'Anúncio com margem'}
+  ];
+  var cw=(W-2*M-8)/3;
+  for(var ci=0; ci<3; ci++){
+    var k=cards[ci], x=M+ci*(cw+4), mid=(ci===1);
+    if(mid){ doc.setFillColor(G[0],G[1],G[2]); } else { doc.setFillColor(TINT[0],TINT[1],TINT[2]); }
+    doc.roundedRect(x,y,cw,44,3,3,'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
+    if(mid){ doc.setTextColor(255,255,255); } else { doc.setTextColor(MUT[0],MUT[1],MUT[2]); }
+    txt(k.t,x+4,y+9);
+    doc.setFontSize(15);
+    if(mid){ doc.setTextColor(255,255,255); } else { doc.setTextColor(G[0],G[1],G[2]); }
+    txt(brl(k.v),x+4,y+21);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    if(mid){ doc.setTextColor(255,255,255); } else { doc.setTextColor(INK[0],INK[1],INK[2]); }
+    txt(brl(k.v/per)+' por m²',x+4,y+29);
+    doc.setFontSize(8);
+    if(mid){ doc.setTextColor(230,241,238); } else { doc.setTextColor(MUT[0],MUT[1],MUT[2]); }
+    txt(k.d,x+4,y+38);
+  }
+  y+=52;
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(INK[0],INK[1],INK[2]);
+  txt('Faixa de mercado: '+brl(c.min)+' a '+brl(c.max)+'   |   Confiança '+c.conf,M,y);
+  y+=11;
+
+  /* dados */
+  title('Dados do imóvel');
+  row('Tipo', TIPOS[i.tipo]);
+  row('Região', c.reg.nome);
+  row('Área do terreno', nf.format(i.terr)+' m²');
+  if(!c.isT){
+    row('Área construída', nf.format(i.area)+' m²');
+    row('Ano da construção', i.ano+' ('+c.idade+' anos)');
+    row('Material', MAT[i.material].nome);
+    row('Padrão de acabamento', PADRAO[i.padrao]);
+    row('Conservação', CONS[i.cons].nome);
+    var ex=[]; if(i.piscina)ex.push('piscina'); if(i.gourmet)ex.push('área gourmet'); if(i.garagem)ex.push('garagem coberta');
+    row('Extras', ex.length?ex.join(', '):'nenhum');
+  }
+  y+=3;
+
+  /* composição */
+  title('Como chegamos ao valor');
+  row('Terreno', brl(c.vTerr)+'  ('+brl(c.unitTerr)+'/m²)');
+  if(!c.isT){
+    row('Construção nova (referência)', brl(c.novo)+'  ('+brl(c.custo)+'/m²)');
+    row('Construção hoje', brl(c.vConst)+'  ('+Math.round(c.fi*c.fc*100)+'% do novo)');
+    if(c.vExtras) row('Extras', brl(c.vExtras));
+  }
+  row('Desconto de negociação', '-'+brl(c.aj)+'  (-'+state.cfg.descNeg+'%)');
+  row('Valor de mercado', brl(c.est));
+  para('O desconto de negociação existe porque os preços de referência vêm de anúncios, e o imóvel costuma fechar abaixo do preço pedido.');
+  y+=3;
+
+  /* mercado */
+  title('Comparativo de mercado');
+  if(c.bench){
+    var st = c.status==='dentro' ? 'dentro da referência' : c.status==='abaixo' ? 'abaixo da referência' : 'acima da referência';
+    row('Referência ('+(c.isT?'terreno':'Centro')+')', c.bench.nome);
+    row('Faixa de mercado', 'R$ '+nf.format(c.bench.faixa[0])+' a '+nf.format(c.bench.faixa[1])+' por m²');
+    row('Este imóvel', brl(c.perM2)+' por m², '+st);
+  } else {
+    para('Não há referência de R$/m² confiável para esta região. O valor deve ser lido como ponto de partida para a negociação.',9.5,INK);
+  }
+  y+=3;
+
+  /* como usar */
+  title('Como usar os três valores');
+  row('Venda rápida', brl(c.rapida)+'  (-'+state.cfg.rapida+'% do mercado)');
+  row('Mercado', brl(c.est)+'  (valor de referência)');
+  row('Sem pressa', brl(c.sem)+'  (+'+state.cfg.semPressa+'% do mercado)');
+  para('Venda rápida: preço para fechar em poucas semanas, com procura alta. Mercado: onde imóveis parecidos estão fechando em Garuva. Sem pressa: preço de anúncio com folga para negociar, indicado quando o proprietário pode esperar.');
+  y+=3;
+
+  if(i.obs){ title('Observações'); para(i.obs,10,INK); y+=2; }
+
+  title('Premissas');
+  para('Valor obtido pelo método do custo: terreno pelo preço de mercado da região mais construção pelo custo de reposição (base CUB SC de jul/2026, R$ 3.121,62/m²), depreciada por idade e conservação, com ajuste do preço pedido para o preço de fechamento.');
+  para('Referências de R$/m² vêm de anúncios ativos em Garuva em nov/2026 e representam preço pedido, não preço fechado. Regiões com poucos anúncios têm confiança baixa e faixa maior.');
+  if(!c.isT && i.material==='madeira') para('Casa de madeira: não há anúncios comparáveis em Garuva. O valor é estimado e deve ser confirmado com vendas reais.');
+  para('Este documento é uma estimativa de valor de mercado e não substitui laudo técnico de engenharia ou arquitetura.');
+
+  /* rodapé em todas as páginas */
+  var n = doc.getNumberOfPages();
+  for(var pg=1; pg<=n; pg++){
+    doc.setPage(pg);
+    doc.setDrawColor(LN[0],LN[1],LN[2]); doc.setLineWidth(.3); doc.line(M,283,W-M,283);
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(INK[0],INK[1],INK[2]);
+    txt(p.nome+(p.creci?'  |  '+p.creci:''),M,288);
+    doc.setFont('helvetica','normal'); doc.setTextColor(MUT[0],MUT[1],MUT[2]);
+    var contato=[p.imob,p.whats?('WhatsApp '+p.whats):'',p.insta].filter(Boolean).join('  |  ');
+    txt(contato,M,293);
+    txt('Página '+pg+' de '+n,W-M,288,{align:'right'});
+  }
+  return doc;
+}
+
+function slug(s){ return String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-+|-+$/g,'').toLowerCase().slice(0,40); }
+
+function makePDF(){
+  if(!last){ toast('Preencha os dados primeiro'); return; }
+  var inClaude = !!(window.claude && typeof window.claude.use==='function');
+  if(!downloads && inClaude){ toast('Não consegui liberar o download aqui. Abra o arquivo direto no navegador.'); return; }
+  var doc;
+  try{ doc = buildPDF(last); }catch(e){ doc=null; }
+  if(!doc){ toast('Não consegui montar o PDF. Recarregue a página e tente de novo.'); return; }
+  var d=new Date(), pad=function(n){return (n<10?'0':'')+n;};
+  var name = 'avaliacao-'+(slug(last.i.ref)||'imovel')+'-'+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'.pdf';
+  if(!downloads){ doc.save(name); toast('PDF gerado'); return; }
+  var blob = doc.output('blob');
+  downloads.save({filename:name, data:blob}).then(function(){ toast('PDF salvo'); }, function(err){
+    if(err && err.code==='declined'){ toast('Download cancelado'); }
+    else { toast('Não foi possível salvar o PDF aqui'); }
+  });
+}
+$('btn-pdf').addEventListener('click', makePDF);
+$('btn-pdf2').addEventListener('click', makePDF);
+
+render();
+})();
+</script>
+</body>
+</html>
